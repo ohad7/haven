@@ -11,6 +11,7 @@ import java.nio.ByteBuffer;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.util.Date;
+import java.util.List;
 import java.util.TreeMap;
 
 import org.bitcoinj.core.Address;
@@ -23,6 +24,7 @@ import org.bitcoinj.core.PeerGroup;
 import org.bitcoinj.core.Sha256Hash;
 import org.bitcoinj.core.StoredBlock;
 import org.bitcoinj.core.Transaction;
+import org.bitcoinj.crypto.DeterministicKey;
 import org.bitcoinj.net.discovery.DnsDiscovery;
 import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.store.BlockStore;
@@ -30,9 +32,11 @@ import org.bitcoinj.store.BlockStoreException;
 import org.bitcoinj.store.SPVBlockStore;
 import org.bitcoinj.utils.Threading;
 import org.bitcoinj.wallet.DeterministicSeed;
+import org.bitcoinj.wallet.KeyChain;
 import org.bitcoinj.wallet.SendRequest;
 import org.bitcoinj.wallet.UnreadableWalletException;
 import org.bitcoinj.wallet.Wallet;
+import org.bitcoinj.wallet.Wallet.BalanceType;
 import org.bitcoinj.wallet.Wallet.SendResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -211,6 +215,19 @@ public class HelloWorld {
     System.out.println("Private key:" + wallet.currentReceiveKey().toStringWithPrivate(params));
     System.out.println("receive address:" + wallet.currentReceiveAddress());
     System.out.println("assert address: " + assertAddress);
+    System.out.println("Change address:" + wallet.currentChangeAddress());
+    System.out.println("Change Private key:" + wallet.currentKey(KeyChain.KeyPurpose.CHANGE).toStringWithPrivate(params));
+    
+    // Example addresses and keys :
+    System.out.println("Example addresses : ");
+    
+    
+    List<DeterministicKey> keys = wallet.freshKeys(KeyChain.KeyPurpose.CHANGE, 10);
+    keys.forEach(key -> {
+      Address address = new Address(params, key.getPubKeyHash());
+      System.out.println(address +" : " + key.getPublicKeyAsHex());
+    });
+    
     if (!wallet.currentReceiveAddress().toBase58().equals(assertAddress)) {
       throw new RuntimeException("Wallet and assert address don't match:" + wallet.currentReceiveAddress().toBase58() +" vs " + assertAddress);
     }
@@ -218,51 +235,38 @@ public class HelloWorld {
   
   public static void showBalanceForever(Wallet wallet) throws InterruptedException {
     while(true) {
-      System.out.println("balance:" + wallet.getBalance());
+      System.out.println("balance:" + wallet.getBalance() +" estimated:" + wallet.getBalance(BalanceType.ESTIMATED));
       Thread.sleep(5000);
     }
   }
   
   public static File getWalletFile(String assertAddress, long creationTime, int version) {
-    String walletFilename = assertAddress+"." + creationTime + "v" + version+ ".wallet";
+    String walletFilename = assertAddress+"." + creationTime + ".v" + version+ ".wallet";
     return new File(walletFilename);
   }
   
-  public static Transaction sendAndSave(Wallet wallet, File walletFile, String destinationAddress, long satoshis) throws Exception {
-    if (walletFile.exists()) {
-      throw new RuntimeException("Refusing to save a wallet to an existing file - change addresses and keys may be deleted");
-    }
+  public static Transaction send(Wallet wallet, String destinationAddress, long satoshis) throws Exception {
     Address dest = Address.fromBase58(params, destinationAddress);
     SendRequest request = SendRequest.to(dest, Coin.valueOf(satoshis));
     SendResult result = wallet.sendCoins(request);
     Transaction endTransaction = result.broadcastComplete.get();
-    logger.info("Saving wallet to file:" + walletFile);
-    wallet.saveToFile(walletFile);
     return endTransaction;
   }
   
   public static void main(String[] args) throws Exception {
     // cleanBlockstores();
-    boolean loadFromFile = false;
     final long creationTime = 1484002542;
     Wallet wallet;
     String assertAddress = "1Cpkx2DUPTk5cpYotfT3tmXrJ35BJboPYm";
-    int loadVersion = 1;
-    int saveVersion = loadVersion + 1;
-    File loadWalletFile = getWalletFile(assertAddress, creationTime, loadVersion);
+    String seedCode = "koko baloko";
+    wallet = fromSeed(seedCode, creationTime);  
     
-    if (loadFromFile) {
-      wallet = Wallet.loadFromFile(loadWalletFile);
-    } else {
-      String seedCode = "kuki puki puchi muchi";
-      wallet = fromSeed(seedCode, creationTime);  
-    }
-    
-    //displayWallet(wallet, assertAddress);
+    displayWallet(wallet, assertAddress);
     reloadBlockChain(creationTime, wallet);
-    showBalanceForever(wallet);
     
-//    File saveWalletFile = getWalletFile(assertAddress, creationTime, saveVersion);
-//    sendAndSave(wallet, saveWalletFile, "1Js7J2oD3GvK2LVAjvib4fSWrQ9N9jNBgk", 50000);
+    // Send in case needed. Note that the wallet will generate keys deterministically
+    // and thus all funds will stay within the wallet :
+//    send(wallet, "1Js7J2oD3GvK2LVAjvib4fSWrQ9N9jNBgk", 35000);
+    showBalanceForever(wallet);
   }
 }

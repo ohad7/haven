@@ -12,6 +12,8 @@ bin
 build
 gradle
 
+.project
+
 mbhd.checkpoints
 mbhd.checkpoints.txt
 multibit-hardware.svp
