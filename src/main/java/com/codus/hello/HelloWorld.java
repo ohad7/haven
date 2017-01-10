@@ -254,12 +254,27 @@ public class HelloWorld {
   }
   
   public static void main(String[] args) throws Exception {
-    // cleanBlockstores();
-    final long creationTime = 1484002542;
+    boolean clean = false;
+    boolean newWallet = false;
+    
+    if (clean) {
+       cleanBlockstores();
+    }
+    
     Wallet wallet;
-    String assertAddress = "1Cpkx2DUPTk5cpYotfT3tmXrJ35BJboPYm";
-    String seedCode = "koko baloko";
-    wallet = fromSeed(seedCode, creationTime);  
+    long creationTime;
+    String assertAddress;
+    
+    if (newWallet) {
+      wallet = newWallet();
+      assertAddress = wallet.currentReceiveAddress().toBase58();
+      creationTime = wallet.getKeyChainSeed().getCreationTimeSeconds();
+    } else {
+      creationTime = 1484002542;
+      assertAddress = "1Cpkx2DUPTk5cpYotfT3tmXrJ35BJboPYm";
+      String seedCode = "mika kika";
+      wallet = fromSeed(seedCode, creationTime);  
+    }
     
     displayWallet(wallet, assertAddress);
     reloadBlockChain(creationTime, wallet);
